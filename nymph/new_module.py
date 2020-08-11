@@ -1,6 +1,5 @@
 
 from typing import Union, List
-import json
 
 import torch
 import pandas as pd
@@ -11,7 +10,7 @@ from sklearn.metrics import classification_report
 from lightutils import logger
 
 from .config import CONFIG
-from .model import Config, LinearClassifier
+from .model import Config, BiLstmCrfClassifier
 from .metric import get_score
 from .data_preprocessor import DataPreprocessor
 from .tool import EarlyStopping, save_dict_to_csv
@@ -21,28 +20,29 @@ seed = 2020
 torch.manual_seed(seed)
 
 
-class Classifier:
+class SeqClassifier:
     def __init__(self):
         self._config = None
         self._model = None
         self.preprocessor = None
 
-    def init_preprocessor(self, window_size=0):
+    def init_preprocessor(self, window_size=1):
         self.preprocessor = DataPreprocessor(window_size=window_size)
         return self.preprocessor
 
     def train(self, train_set: ClsDataset, dev_set=None, save_path=CONFIG['save_path']):
         class_num = self.preprocessor.class_nums
-        train_iter = DataLoader(train_set, batch_size=256)
+        batch_size = 256
+        train_iter = DataLoader(train_set, batch_size=batch_size)
         item_shape = train_set[0][0].shape
         window_size = item_shape[0]
         feature_dimension = item_shape[1]
         self._config = Config(save_path=save_path, class_num=class_num, window_size=window_size,
-                              feature_dimension=feature_dimension)
-        linear_classifier = LinearClassifier(self._config)
-        self._model = linear_classifier
-        opt = torch.optim.Adam(linear_classifier.parameters(), lr=0.01)
-        scheduler = torch.optim.lr_scheduler.ExponentialLR(opt, gamma=0.98)
+                              feature_dimension=feature_dimension, batch_size=batch_size)
+        bilstm_crf_classifier = BiLstmCrfClassifier(self._config)
+        self._model = bilstm_crf_classifier
+        opt = torch.optim.Adam(bilstm_crf_classifier.parameters(), lr=0.01)
+        scheduler = torch.optim.lr_scheduler.ExponentialLR(opt, gamma=0.95)
         # scheduler = torch.optim.lr_scheduler.StepLR(opt, 25)
 
         early_stopping = EarlyStopping(score_mode=dev_set is not None)
@@ -51,8 +51,9 @@ class Classifier:
             acc_loss = 0
             for x_i, y_i in tqdm(train_iter):
                 opt.zero_grad()
-                pred = self._model(x_i)
-                item_loss = F.cross_entropy(pred, y_i.reshape((-1)))
+                x_i = x_i.permute(1, 0, 2)
+                y_i = y_i.permute(1, 0)
+                item_loss = (- self._model.loss(x_i, y_i)) / x_i.shape[0]
                 acc_loss += item_loss.item()
                 item_loss.backward()
                 opt.step()
@@ -60,11 +61,12 @@ class Classifier:
             logger.info("learning rate is {}".format(opt.param_groups[0]["lr"]))
             logger.info('epoch: {}, acc_loss: {}'.format(epoch, acc_loss))
             if dev_set:
-                dev_score = self.score(dev_set)
-                logger.info("dev score: {}".format(dev_score))
-                if early_stopping(new_record=dev_score):
-                    logger.info("reach early stopping patience, break training.")
-                    break
+                pass
+                # dev_score = self.score(dev_set)
+                # logger.info("dev score: {}".format(dev_score))
+                # if early_stopping(new_record=dev_score):
+                #     logger.info("reach early stopping patience, break training.")
+                #     break
             else:
                 if early_stopping(new_record=acc_loss):
                     logger.info("reach early stopping patience, break training.")
@@ -110,7 +112,7 @@ class Classifier:
 
     def load(self, save_path=CONFIG['save_path']):
         config = Config.load(save_path)
-        model = LinearClassifier(config)
+        model = BiLstmCrfClassifier(config)
         model.load()
         self._config = config
         self._model = model

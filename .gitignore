@@ -136,3 +136,8 @@ dmypy.json
 examples/saves
 examples/report.txt
 examples/summary.csv
+
+
+# model and csv
+*.pkl
+*.csv

@@ -41,7 +41,7 @@ class DataPreprocessor(BasePreprocessor):
         self.feature_columns: List = []
 
     def set_target(self, target: Union[List, pd.Series]):
-        vocab = Vocab(unk_token=None)
+        vocab = Vocab(init_token=self._init_token, eos_token=self._eos_token, unk_token=None)
         vocab.add_words(target)
         vocab.build_vocab()
         self.target_vocab = vocab
@@ -58,7 +58,6 @@ class DataPreprocessor(BasePreprocessor):
                 vocab.build_vocab()
                 vocab.init_vectors()
                 self.vocabs[index] = vocab
-                print(index)
 
         # 针对连续性数据进行标准化
         def numeric_filter(dataset):
@@ -121,6 +120,19 @@ class DataPreprocessor(BasePreprocessor):
         if not isinstance(target, np.ndarray):
             target = np.array(target)
         return self.target_vocab.numericalize(target.reshape((-1, 1)))
+
+    def transform_targets(self, target):
+        self._check_state()
+        if not isinstance(target, np.ndarray):
+            target = np.array(target)
+        target = target
+        ios_data = np.array([self.target_vocab.init_token] * self.window_size)
+        eos_data = np.array([self.target_vocab.eos_token] * self.window_size)
+        target = np.concatenate([ios_data, target, eos_data])
+        # print(target)
+        res_data = [target[i: i+self.window_size*2+1] for i in range(len(target) - self.window_size*2)]
+        # print(res_data)
+        return self.target_vocab.numericalize(res_data)
 
     def reverse_target(self, target_nums):
         self._check_state()
