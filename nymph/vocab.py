@@ -23,7 +23,7 @@ class Vocab(object):
         self.pad_token = pad_token
         self.itos = list()
         self.stoi = defaultdict()
-        self._vectors = None
+        self.vectors = None
 
     def build_vocab(self, min_freq=1, max_size=None, specials_first=True):
 
@@ -94,10 +94,10 @@ class Vocab(object):
         return np.array([[self[x] for x in row] for row in arr])
 
     def init_vectors(self, dim=3):
-        self._vectors = nn.Embedding(len(self), dim)
+        self.vectors = nn.Embedding(len(self), dim)
 
     def vectorize(self, arr):
-        return self._vectors(arr).data
+        return self.vectors(arr).data
 
     def reverse(self, arr):
         return [self.to_word(x) for x in arr]
