@@ -1,6 +1,9 @@
 from distutils.core import setup
 import setuptools
 
+with open('./version.txt', encoding='utf8') as f:
+    version = f.read().strip()
+
 with open('./README.md', 'r', encoding='utf8') as f:
     long_description = f.read()
 
@@ -9,7 +12,7 @@ with open('./requirements.txt', 'r', encoding='utf8') as f:
 print(setuptools.find_packages())
 setup(
     name='nymph',
-    version='0.1.0',
+    version=version,
     description="General multi-feature classification library based on pytorch",
     author='lightsmile',
     author_email='iamlightsmile@gmail.com',

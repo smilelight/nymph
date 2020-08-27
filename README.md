@@ -3,7 +3,7 @@
 
 ## 概述
 
-基于Pytorch的多特征分类框架，包装的还算可以。可以直接照搬demo，拿csv文件去训练预测。
+基于Pytorch的多特征序列标注和普通分类框架，包装的还算可以。可以直接照搬demo，拿csv文件去训练预测。
 
 ## 功能
 
@@ -13,7 +13,9 @@
 ## 原理
 
 - 预处理：对各列非数值类数据分别构建词表并使用Embedding获得低维稠密向量，对数值类数据进行标准化，然后拼接获得各行对应向量
-- 模型：使用如全连接网络对模型进行训练
+- 模型：
+    - 普通分类：全连接神经网络，NormClassifier（具体效果看特征）
+    - 序列标注：Bi-LSTM-CRF，SeqClassifier（效果较好）
 - 预测：使用sklearn获取f1分数，并且获得各类别分类详情
 
 ## 安装
@@ -34,93 +36,225 @@ pip install -U nymph
 
 ![test_data](./res/test_data.png)
 
-### 训练模型
+### 普通分类
 
-#### 具体代码
+#### 训练模型
 
-源码如下，具体可参见[train_classifier.py](./examples/train_classifier.py)：
+源码如下，具体可参见[train_demo_by_norm.py](./examples/train_demo_by_norm.py)：
 
 ```python
-
+# -*- coding: utf-8 -*-
 import os
 
 import pandas as pd
-from sklearn.model_selection import train_test_split
-from nymph.module import Classifier
-from nymph.dataset import ClsDataset
+from nymph.data import NormDataset, split_dataset
+from nymph.modules import NormClassifier
 
 project_path = os.path.abspath(os.path.join(__file__, '../../'))
 data_path = os.path.join(project_path, r'data\test.csv')
-columns = ['fuck', 'shit']
-target = 'label'
+save_path = 'demo_saves'
 
 if __name__ == '__main__':
-    # 读取原始数据
+    # 读取数据
     data = pd.read_csv(data_path)
+    # 构建分类器
+    classifier = NormClassifier()
+    classifier.init_data_processor(data, target_name='label')
 
-    # 构建分类器并初始化预处理器
-    classifier = Classifier()
-    data_preprocessor = classifier.init_preprocessor(window_size=0)
-    data_preprocessor.fit(data[columns])
-    data_preprocessor.set_target(data[target])
+    # 构建数据集
+    norm_ds = NormDataset(data)
 
-    # 划分并构建训练测试数据集
-    x_train, x_test, y_train, y_test = train_test_split(data[columns], data[target], test_size=0.1, random_state=2020)
+    train_ratio = 0.7
+    dev_ratio = 0.2
+    test_ratio = 0.1
 
-    train_set = ClsDataset(data_preprocessor, x_train, y_train)
-    test_set = ClsDataset(data_preprocessor, x_test, y_test)
+    train_ds, dev_ds, test_ds = split_dataset(norm_ds, (train_ratio, dev_ratio, test_ratio))
 
     # 训练模型
-    classifier.train(train_set=train_set, dev_set=test_set)
+    # classifier.train(train_set=train_ds, dev_set=dev_ds, save_path=save_path)
+    classifier.train(train_set=norm_ds, dev_set=norm_ds, save_path=save_path)
 
-    # 评估模型分数
-    test_score = classifier.score(test_set=test_set)
-    print(test_score)
+    # 测试模型
+    test_score = classifier.score(norm_ds)
+    print('test_score', test_score)
 
-    # 获取各类别分类结果，并保存信息至文件中
-    print(classifier.report(test_set, output_path='report.txt'))
-
-    # 对数据进行预测，并将数据和预测结果写入到新的文件中
-    classifier.summary(data, 'summary.csv')
+    # 预测模型
+    pred = classifier.predict(norm_ds)
+    print(pred)
 
 ```
 
-#### 训练结果
+###### 训练结果
 
-##### 终端输出
+终端输出
 
-![train_classifier_result](./res/train_classifier_result.png)
+![train_demo_by_norm_result](./res/train_demo_by_norm_result.jpg)
 
-##### `report.txt`内容
+#### 预测模型
 
-![report](./res/report.png)
-
-##### `summary.csv`内容
-
-![summary](./res/summary.png)
-
-之后我们可以利用这些结果进行更进一步的badcase分析。
-
-### 预测模型
-
-#### 具体代码
-
-源码如下，具体可参见[load_classifier](./examples/load_classifier.py)
+源码如下，具体可参见[predict_demo_by_norm.py](./examples/predict_demo_by_norm.py)
 
 ```python
-from nymph.module import Classifier
+# -*- coding: utf-8 -*-
+import os
+
+import pandas as pd
+from nymph.data import NormDataset, split_dataset
+from nymph.modules import NormClassifier
+
+project_path = os.path.abspath(os.path.join(__file__, '../../'))
+data_path = os.path.join(project_path, r'data\test.csv')
+save_path = 'demo_saves'
 
 if __name__ == '__main__':
-    raw_data = [['a', 1.0], ['b', 1.0]]
-    classifier = Classifier()
-    classifier.load('./saves')
-    res = classifier.predict(raw_data)
-    print(res)
+    # 读取数据
+    data = pd.read_csv(data_path)
+    # 构建分类器
+    classifier = NormClassifier()
+
+    # 加载分类器
+    classifier.load(save_path)
+
+    # 构建数据集
+    norm_ds = NormDataset(data)
+
+    # 预测模型
+    pred = classifier.predict(norm_ds)
+    print(pred)
+
+    # 获取各类别分类结果，并保存信息至文件中
+    classifier.report(norm_ds, 'report.csv')
+
+    # 对数据进行预测，并将数据和预测结果写入到新的文件中
+    classifier.summary(norm_ds, 'summary.csv')
+
 ```
 
-#### 预测结果
+##### 预测结果
 
-如图：![load_classifier_result](./res/load_classifier_result.png)
+如图：![predict_demo_by_norm_result](./res/predict_demo_by_norm_result.jpg)
+
+`report.csv`内容
+
+![report](./res/report.jpg)
+
+`summary.csv`内容
+
+![summary](./res/summary.jpg)
+
+### 序列标注
+
+#### 训练模型
+
+源码如下，具体可参见[train_demo_by_seq.py](./examples/train_demo_by_seq.py)：
+
+```python
+# -*- coding: utf-8 -*-
+import os
+
+import pandas as pd
+from nymph.data import SeqDataset, split_dataset
+from nymph.modules import SeqClassifier
+
+project_path = os.path.abspath(os.path.join(__file__, '../../'))
+data_path = os.path.join(project_path, r'data\test.csv')
+save_path = 'demo_saves_seq'
+
+
+def split_fn(dataset: list):
+    return list(range(len(dataset)+1))
+
+
+if __name__ == '__main__':
+    # 读取数据
+    data = pd.read_csv(data_path)
+    # 构建分类器
+    classifier = SeqClassifier()
+    classifier.init_data_processor(data, target_name='label')
+
+    # 构建数据集
+    norm_ds = SeqDataset(data, split_fn=split_fn, min_len=4)
+
+    train_ratio = 0.7
+    dev_ratio = 0.2
+    test_ratio = 0.1
+
+    train_ds, dev_ds, test_ds = split_dataset(norm_ds, (train_ratio, dev_ratio, test_ratio))
+
+    # 训练模型
+    # classifier.train(train_set=train_ds, dev_set=dev_ds, save_path=save_path)
+    classifier.train(train_set=norm_ds, dev_set=norm_ds, save_path=save_path)
+
+    # 测试模型
+    test_score = classifier.score(norm_ds)
+    print('test_score', test_score)
+
+    # 预测模型
+    pred = classifier.predict(norm_ds)
+    print(pred)
+
+```
+
+##### 训练结果
+
+终端输出
+
+![train_demo_by_seq_result](./res/train_demo_by_seq_result.jpg)
+
+#### 预测模型
+
+源码如下，具体可参见[predict_demo_by_seq.py](./examples/predict_demo_by_seq.py)
+
+```python
+# -*- coding: utf-8 -*-
+import os
+
+import pandas as pd
+from nymph.data import SeqDataset, split_dataset
+from nymph.modules import SeqClassifier
+
+project_path = os.path.abspath(os.path.join(__file__, '../../'))
+data_path = os.path.join(project_path, r'data\test.csv')
+save_path = 'demo_saves_seq'
+
+
+def split_fn(dataset: list):
+    return list(range(len(dataset)+1))
+
+
+if __name__ == '__main__':
+    # 读取数据
+    data = pd.read_csv(data_path)
+    # 构建分类器
+    classifier = SeqClassifier()
+
+    # 加载分类器
+    classifier.load(save_path)
+
+    # 构建数据集
+    seq_ds = SeqDataset(data, split_fn=split_fn, min_len=4)
+
+    # 预测模型
+    pred = classifier.predict(seq_ds)
+    print(pred)
+
+    # 获取各类别分类结果，并保存信息至文件中
+    classifier.report(seq_ds, 'seq_demo_report.csv')
+
+    # 对数据进行预测，并将数据和预测结果写入到新的文件中
+    classifier.summary(seq_ds, 'seq_demo_summary.csv')
+
+```
+
+如图：![predict_demo_by_seq_result](./res/predict_demo_by_seq_result.jpg)
+
+`seq_demo_report.csv`内容
+
+![seq_demo_report](./res/seq_demo_report.jpg)
+
+`seq_demo_summary.csv`内容
+
+![seq_demo_summary](./res/seq_demo_summary.jpg)
 
 
 

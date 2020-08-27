@@ -141,3 +141,6 @@ examples/summary.csv
 # model and csv
 *.pkl
 *.csv
+
+# tests
+tests
