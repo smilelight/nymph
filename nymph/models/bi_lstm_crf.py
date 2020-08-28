@@ -44,14 +44,16 @@ class BiLstmCrfClassifier(BaseModel):
         return h0, c0
 
     def forward(self, x, seq_lens):
-        mask = get_mask(seq_lens)
+        x = x.to(DEVICE)
+        mask = get_mask(seq_lens).to(DEVICE)
         emissions = self.lstm_forward(x, seq_lens)
         return self.crf_layer.decode(emissions, mask=mask)
 
     def loss(self, x, seq_lens, y):
-        mask = get_mask(seq_lens)
+        x = x.to(DEVICE)
+        mask = get_mask(seq_lens).to(DEVICE)
         emissions = self.lstm_forward(x, seq_lens)
-        return self.crf_layer(emissions, torch.LongTensor(y), mask=mask)
+        return self.crf_layer(emissions, torch.LongTensor(y).to(DEVICE), mask=mask)
 
     def lstm_forward(self, x, seq_lens):
         x = pack_padded_sequence(x, seq_lens)

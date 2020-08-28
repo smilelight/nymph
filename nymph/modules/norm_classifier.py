@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader, ConcatDataset
 from sklearn.metrics import classification_report
 from lightutils import logger
 
-from ..core.config import CONFIG
+from ..core.config import CONFIG, DEVICE
 from ..models.linear import Config, LinearClassifier
 from ..data.dataset import NormDataset
 from ..data.processor import NormProcessor
@@ -59,7 +59,7 @@ class NormClassifier:
                 x = item['features']
                 y = item['targets']
                 pred = self._model(x)
-                item_loss = F.cross_entropy(pred, y.reshape((-1)))
+                item_loss = F.cross_entropy(pred, y.reshape((-1)).to(DEVICE))
                 acc_loss += item_loss.item()
                 item_loss.backward()
                 opt.step()
@@ -95,7 +95,7 @@ class NormClassifier:
         for item in tqdm(test_iter):
             x = item['features']
             y = item['targets']
-            item_score_list = get_score(self._model, x, y.reshape((-1)))
+            item_score_list = get_score(self._model, x, y.reshape((-1)).to(DEVICE))
             score_list.append(item_score_list)
         res = sum(score_list) / len(score_list)
         return res

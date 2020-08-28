@@ -35,5 +35,6 @@ class LinearClassifier(BaseModel):
         ).to(DEVICE)
 
     def forward(self, x):
+        x = x.to(DEVICE)
         x = self.seq(x)
-        return x
+        return x.to(DEVICE)
