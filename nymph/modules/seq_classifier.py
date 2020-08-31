@@ -4,6 +4,7 @@ import torch
 import pandas as pd
 from tqdm import tqdm
 from torch.utils.data import DataLoader, ConcatDataset
+from torch.utils.tensorboard import SummaryWriter
 from sklearn.metrics import classification_report
 from lightutils import logger
 
@@ -25,6 +26,7 @@ class SeqClassifier:
         self._model = None
         self.data_processor = None
         self.batch_size = 16
+        self._writer = None
 
     def init_data_processor(self, dataset: Union[List[Dict], pd.DataFrame], target_name: str, un_fit_names=None):
         if un_fit_names is None:
@@ -33,7 +35,12 @@ class SeqClassifier:
         self.data_processor.fit(dataset, target_name, un_fit_names)
         return self.data_processor
 
-    def train(self, train_set: Union[SeqDataset, ConcatDataset], dev_set=None, save_path=CONFIG['save_path']):
+    def train(self, train_set: Union[SeqDataset, ConcatDataset], dev_set=None, save_path=CONFIG['save_path'],
+              log_dir: str = None):
+
+        _seq_writer = SummaryWriter(log_dir) if log_dir else None
+        if log_dir:
+            logger.info("training logs will be written in {}".format(log_dir))
         batch_size = self.batch_size
         class_num = self.data_processor.target_nums
         feature_dimension = self.data_processor.feature_dimension
@@ -64,10 +71,14 @@ class SeqClassifier:
             scheduler.step()
             logger.info("learning rate is {}".format(opt.param_groups[0]["lr"]))
             logger.info('epoch: {}, acc_loss: {}'.format(epoch, acc_loss))
+            if log_dir:
+                _seq_writer.add_scalar('Loss/train', acc_loss, epoch)
             if dev_set:
                 pass
                 dev_score = self.score(dev_set)
                 logger.info("dev score: {}".format(dev_score))
+                if log_dir:
+                    _seq_writer.add_scalar('F1/train', dev_score, epoch)
                 if early_stopping.update(new_record=dev_score):
                     self._model.save_best_model()
                 if early_stopping.stop():
