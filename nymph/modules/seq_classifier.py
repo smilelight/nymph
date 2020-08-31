@@ -38,7 +38,7 @@ class SeqClassifier:
     def train(self, train_set: Union[SeqDataset, ConcatDataset], dev_set=None, save_path=CONFIG['save_path'],
               log_dir: str = None):
 
-        _seq_writer = SummaryWriter(log_dir) if log_dir else None
+        log_writer = SummaryWriter(log_dir) if log_dir else None
         if log_dir:
             logger.info("training logs will be written in {}".format(log_dir))
         batch_size = self.batch_size
@@ -50,7 +50,7 @@ class SeqClassifier:
         self._config = Config(save_path=save_path, class_num=class_num,
                               feature_dimension=feature_dimension, batch_size=batch_size)
         self._model = BiLstmCrfClassifier(self._config)
-        print(self._model)
+        print("model structure:", self._model)
         opt = torch.optim.Adam(self._model.parameters(), lr=0.01)
         scheduler = torch.optim.lr_scheduler.ExponentialLR(opt, gamma=0.95)
         # scheduler = torch.optim.lr_scheduler.StepLR(opt, 25)
@@ -72,13 +72,13 @@ class SeqClassifier:
             logger.info("learning rate is {}".format(opt.param_groups[0]["lr"]))
             logger.info('epoch: {}, acc_loss: {}'.format(epoch, acc_loss))
             if log_dir:
-                _seq_writer.add_scalar('Loss/train', acc_loss, epoch)
+                log_writer.add_scalar('Loss/train', acc_loss, epoch)
             if dev_set:
                 pass
                 dev_score = self.score(dev_set)
                 logger.info("dev score: {}".format(dev_score))
                 if log_dir:
-                    _seq_writer.add_scalar('F1/train', dev_score, epoch)
+                    log_writer.add_scalar('F1/train', dev_score, epoch)
                 if early_stopping.update(new_record=dev_score):
                     self._model.save_best_model()
                 if early_stopping.stop():

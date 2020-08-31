@@ -6,6 +6,7 @@ import pandas as pd
 import torch.nn.functional as F
 from tqdm import tqdm
 from torch.utils.data import DataLoader, ConcatDataset
+from torch.utils.tensorboard import SummaryWriter
 from sklearn.metrics import classification_report
 from lightutils import logger
 
@@ -35,7 +36,12 @@ class NormClassifier:
         self.data_processor.fit(dataset, target_name, un_fit_names)
         return self.data_processor
 
-    def train(self, train_set: Union[NormDataset, ConcatDataset], dev_set=None, save_path=CONFIG['save_path']):
+    def train(self, train_set: Union[NormDataset, ConcatDataset], dev_set=None, save_path=CONFIG['save_path'], 
+              log_dir: str = None):
+        
+        log_writer = SummaryWriter(log_dir) if log_dir else None
+        if log_dir:
+            logger.info("training logs will be written in {}".format(log_dir))
         batch_size = self.batch_size
         class_num = self.data_processor.target_nums
         feature_dimension = self.data_processor.feature_dimension
@@ -45,7 +51,7 @@ class NormClassifier:
         self._config = Config(save_path=save_path, class_num=class_num,
                               feature_dimension=feature_dimension, batch_size=batch_size)
         self._model = LinearClassifier(self._config)
-        print(self._model)
+        print("model structure:", self._model)
         opt = torch.optim.Adam(self._model.parameters(), lr=0.01)
         # scheduler = torch.optim.lr_scheduler.ExponentialLR(opt, gamma=0.95)
         scheduler = torch.optim.lr_scheduler.StepLR(opt, 20)
@@ -66,10 +72,14 @@ class NormClassifier:
             scheduler.step()
             logger.info("learning rate is {}".format(opt.param_groups[0]["lr"]))
             logger.info('epoch: {}, acc_loss: {}'.format(epoch, acc_loss))
+            if log_dir:
+                log_writer.add_scalar('Loss/train', acc_loss, epoch)
             if dev_set:
                 pass
                 dev_score = self.score(dev_set)
                 logger.info("dev score: {}".format(dev_score))
+                if log_dir:
+                    log_writer.add_scalar('F1/train', dev_score, epoch)
                 if early_stopping.update(new_record=dev_score):
                     self._model.save_best_model()
                 if early_stopping.stop():
