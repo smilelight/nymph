@@ -262,5 +262,8 @@ if __name__ == '__main__':
 - 0.2.0: 增加序列标注模型，大幅重构项目结构与内部实现代码
 - 0.2.1: 更新代码，使GPU和CPU下同时可用
 - 0.2.2: 增加将训练过程的loss和f1值写入到TensorBoard中
+- 0.2.3: 增加Norm Classifier的TensorBoard功能
 
+## 参考
+1. [python - Sorting list based on values from another list? - Stack Overflow](https://stackoverflow.com/questions/6618515/sorting-list-based-on-values-from-another-list)
 
