@@ -102,12 +102,13 @@ class SeqClassifier:
         score_list = []
         test_iter = DataLoader(test_set, batch_size=batch_size, drop_last=False,
                                collate_fn=self.data_processor.transform)
-        for item in tqdm(test_iter):
-            x = item['features']
-            y = item['targets']
-            seq_lens = item['seq_lens']
-            item_score_list = get_seq_score(self._model, x, seq_lens, y)
-            score_list.extend(item_score_list)
+        with torch.no_grad():
+            for item in tqdm(test_iter):
+                x = item['features']
+                y = item['targets']
+                seq_lens = item['seq_lens']
+                item_score_list = get_seq_score(self._model, x, seq_lens, y)
+                score_list.extend(item_score_list)
         res = sum(score_list) / len(score_list)
         return res
 
@@ -147,13 +148,14 @@ class SeqClassifier:
         pred_list = []
         pred_iter = DataLoader(pred_set, batch_size=batch_size, drop_last=False,
                                collate_fn=self.data_processor.transform)
-        for item in tqdm(pred_iter):
-            x = item['features']
-            seq_lens = item['seq_lens']
-            indexes = item['indexes']
-            pred_item = self._model(x, seq_lens)
-            pred_item = [x for _, x in sorted(zip(indexes, pred_item))]
-            pred_list.extend(pred_item)
+        with torch.no_grad():
+            for item in tqdm(pred_iter):
+                x = item['features']
+                seq_lens = item['seq_lens']
+                indexes = item['indexes']
+                pred_item = self._model(x, seq_lens)
+                pred_item = [x for _, x in sorted(zip(indexes, pred_item))]
+                pred_list.extend(pred_item)
         labels_list = self.data_processor.reverse_target(pred_list)
         res_list = []
         for labels in labels_list:

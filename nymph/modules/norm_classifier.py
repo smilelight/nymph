@@ -101,9 +101,11 @@ class NormClassifier:
         batch_size = self.batch_size
         self._model.eval()
         score_list = []
-        test_iter = DataLoader(test_set, batch_size=batch_size, drop_last=False, collate_fn=self.data_processor.transform)
-        for item in tqdm(test_iter):
-            x = item['features']
+        test_iter = DataLoader(test_set, batch_size=batch_size, drop_last=False,
+                               collate_fn=self.data_processor.transform)
+        with torch.no_grad():
+            for item in tqdm(test_iter):
+                x = item['features']
             y = item['targets']
             item_score_list = get_score(self._model, x, y.reshape((-1)).to(DEVICE))
             score_list.append(item_score_list)
@@ -145,12 +147,13 @@ class NormClassifier:
         pred_list = []
         pred_iter = DataLoader(pred_set, batch_size=batch_size, drop_last=False,
                                collate_fn=self.data_processor.transform)
-        for item in tqdm(pred_iter):
-            x = item['features']
-            pred_item = self._model(x)
-            soft_pred = torch.softmax(pred_item, dim=1)
-            pred_prob, pred_idx = torch.max(soft_pred.cpu().data, dim=1)
-            pred_list.append(pred_idx.tolist())
+        with torch.no_grad():
+            for item in tqdm(pred_iter):
+                x = item['features']
+                pred_item = self._model(x)
+                soft_pred = torch.softmax(pred_item, dim=1)
+                pred_prob, pred_idx = torch.max(soft_pred.cpu().data, dim=1)
+                pred_list.append(pred_idx.tolist())
         labels_list = self.data_processor.reverse_target(pred_list)
         res_list = []
         for labels in labels_list:
